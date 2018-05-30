@@ -91,10 +91,10 @@ void partInfoInit()
     strcpy(mtdPartInfo[5].part_file, "u-boot.bin");
     strcpy(mtdPartInfo[6].part_file, "zxboot.bin");
 
-    if(upg_more) {
-        mtdPartInfo[1].need_upgrade = true; //userdata
-        mtdPartInfo[5].need_upgrade = true; //uboot
-    }
+    //if(upg_more) {
+    mtdPartInfo[1].need_upgrade = true; //userdata
+    mtdPartInfo[5].need_upgrade = true; //uboot
+    //}
 }
 
 bool checkFile()
@@ -134,7 +134,7 @@ bool checkFile()
         if(stat(filePath, &stbuf) == -1)
         {
             printf("error, boot file is not exist!\n");
-            continue;
+            //continue;
         }
 
         sprintf(filePath, "%s/%s", name, PART_FILE_SYSTEM);
@@ -246,11 +246,19 @@ bool parsePartTable()
 
     }
 
+    struct stat stbuf;
+    char file_path[MAX_PATH];
+
     printf("\ntotal part num: %d\n", j);
     g_part_num = j;
     for(i = 0; i < g_part_num; i++) {
-        printf("part i: %d, %s, size: 0x%08lx, erasesize: 0x%08lx, part name: %s, \tfile: %s\n", \
-                i, mtdPartInfo[i].mtd, mtdPartInfo[i].size, mtdPartInfo[i].erasesize, mtdPartInfo[i].part_name, mtdPartInfo[i].part_file);
+        sprintf(file_path, "%s/%s", g_upg_path, mtdPartInfo[i].part_file);
+
+        if(stat(file_path, &stbuf) == -1) {
+            mtdPartInfo[i].need_upgrade = false;
+        }
+        printf("part i: %d, %s, size: 0x%08lx, erasesize: 0x%08lx, flag: %d, part name: %s, \tfile: %s\n", \
+                i, mtdPartInfo[i].mtd, mtdPartInfo[i].size, mtdPartInfo[i].erasesize, mtdPartInfo[i].need_upgrade, mtdPartInfo[i].part_name, mtdPartInfo[i].part_file);
     }
 
     fclose(fp);
@@ -274,12 +282,10 @@ int getVerMd5()
 {
     char file[MAX_PATH];
     char buff[MAX_PATH];
-    char buffBak[MAX_PATH];
     FILE *fp = NULL;
     char *tmp = NULL;
     char str[16];
     int len = 0;
-    int i = 0, j = 0;
     
     memset(buff, 0, MAX_PATH);
     memset(str, 0, 16);
@@ -683,7 +689,7 @@ int main(int argc, char * argv[])
             sprintf(file_path, "%s/%s", g_upg_path, mtdPartInfo[i].part_file);
             if(stat(file_path, &stbuf) == -1) {
                 printf("cannot find part%d file: %s\n", i, mtdPartInfo[i].part_file);
-                return -4;
+                mtdPartInfo[i].need_upgrade = false;
             } else {
                 upgPartInfo[i].file_size = stbuf.st_size;
                 upgPartInfo[i].write_size = ALIGN(upgPartInfo[i].file_size, mtdPartInfo[i].erasesize);
