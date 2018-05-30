@@ -1,0 +1,9 @@
+PATH_PREFIX = /home/jason/work/source/wifi_nvr/toolchain/gcc-linaro-7.2.1-2017.11-x86_64_arm-linux-gnueabihf
+CROSS_COMPILE ?= $(PATH_PREFIX)/bin/arm-linux-gnueabihf-
+CC := $(CROSS_COMPILE)g++
+
+all:
+	$(CC) main.c utils.c -o upgrade
+
+clean:
+	rm *.o
