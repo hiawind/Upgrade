@@ -1,5 +1,59 @@
 #include "utils.h"
 
+/*
+ *  * print sizes as "xxx KiB", "xxx.y KiB", "xxx MiB", "xxx.y MiB",
+ *   * xxx GiB, xxx.y GiB, etc as needed; allow for optional trailing string
+ *    * (like "\n")
+ *     */
+void print_size(unsigned long long size, const char *s)
+{
+    unsigned long m = 0, n;
+    unsigned long long f;
+    static const char names[] = {'E', 'P', 'T', 'G', 'M', 'K'};
+    unsigned long d = 10 * ARRAY_SIZE(names);
+    char c = 0;
+    unsigned int i;
+
+    for (i = 0; i < ARRAY_SIZE(names); i++, d -= 10) {
+        if (size >> d) {
+            c = names[i];
+            break;
+                                             
+        }                                
+    }
+
+    if (!c) {
+        printf("%llu Bytes%s", size, s);
+        return;
+                                                    
+    }
+
+    n = size >> d;
+    f = size & ((1ULL << d) - 1);
+
+   /* If there's a remainder, deal with it */
+    if (f) {
+        m = (10ULL * f + (1ULL << (d - 1))) >> d;
+
+        if (m >= 10) {
+            m -= 10;
+            n += 1;
+                                                                        
+        }
+                                                    
+    }
+
+    printf ("%lu", n);
+    if (m) {
+        printf (".%ld", m);
+                                                        
+    }
+    
+    printf (" %ciB%s", c, s);
+
+}
+
+
 void removeChar(char *str, char c) 
 {
     char *s = str;
@@ -45,7 +99,7 @@ unsigned int StrToHex(char *pszSrc, int nLen)
     return ret;
 }  
 
-void hexdump(char *buf, int len) 
+void hexdump(const char *buf, int len) 
 {
     int i = 0; 
 
@@ -84,7 +138,7 @@ int shexec(const char *cmd, char res[][512], int count)
         strcpy(res[i], tmp);
         i++;
         if(i >= count) {
-            printf("Too many results, return\n");
+            printf("get enough results, return\n");
             break;
         }
     }

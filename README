@@ -1,0 +1,22 @@
+﻿1. 将image包里需要升级的文件放到U盘根目录的upgrade目录/mnt/sda1/upgrade
+
+2. upgrade目录还需要包含如下文件：
+	 version
+	 md5
+	 其中version表示当前升级包的版本号，内容如下：
+	 version=201805131425
+	 md5保存升级包里所有升级文件的md5值，由md5sum工具生成，命令如下：
+     md5sum * > md5
+
+     内容如下：
+	 8591df627b8ced27d6ccf310663dd39c  boot.img
+	 d99f17b11244172f0267d5412733a253  rootfs.jffs2
+	 fbac55dd19084eb4a0f208ccc719452a  splash.dat
+	 e7b0b91e792a7b186f8c318166542001  squashfs
+	 7c29bda2f3a3a05e99a5607f3acec20a  u-boot.bin
+	 6076f00c664070cbf62d00bc725f72ee  zxboot.bin
+	 
+3. /mnt/sda1/upgrade目录下的文件如下所示，参考sample目录。
+	boot.img  md5  rootfs.jffs2  squashfs  u-boot.bin  version
+	
+
