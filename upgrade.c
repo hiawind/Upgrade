@@ -343,7 +343,7 @@ bool check_ver_md5(char *path)
                 g_upgrade_size += g_upg_part_info[i].write_size;
             }
             
-            if(verify_image_file(file, g_upg_part_info[i].md5, 0) != 0) {
+            if(verify_image_file(file, g_upg_part_info[i].md5, 0, 0) != 0) {
                 printf("part%d md5 error!\n", i);
                 return false;
             }
@@ -354,8 +354,10 @@ bool check_ver_md5(char *path)
                 return false;
             }
 
+            printf("file: %s, size: %d, tmp_md5: %s\n", file, g_mtd_part_info[i].size, tmp_md5);
+
             sprintf(file, "/dev/%s", g_mtd_part_info[i].mtd);
-            if(verify_image_file(file, tmp_md5, 1) == 0) {
+            if(verify_image_file(file, tmp_md5, 1, g_mtd_part_info[i].size) == 0) {
                 printf("%s md5 of flash and image are the same, not upgrade!\n\n", file);
                 g_upg_part_info[i].need_upgrade = false;
             } else {
@@ -514,7 +516,6 @@ bool mtd_write_part(int index, const char *mtd)
     gettimeofday(&tv1, NULL);
     printf("tv1: %ld\n", tv1.tv_sec);
     
-    
     while(imglen) {
         memset(write_buf, 0xFF, readlen);
         if((read_cnt = read(ifd, write_buf, readlen)) != readlen) {
@@ -598,7 +599,7 @@ END:
 
 
 
-int verify_image_file(const char* img_file_name, const char* md5, int flag)
+int verify_image_file(const char* img_file_name, const char* md5, int flag, unsigned long size)
 {
     unsigned char digest[16];
 
@@ -606,7 +607,7 @@ int verify_image_file(const char* img_file_name, const char* md5, int flag)
         if(md5_file(img_file_name, digest) != 0)
             return -1;
     } else if(flag == 1) {
-        if(md5_part(img_file_name, digest) != 0)
+        if(md5_part(img_file_name, digest, size) != 0)
             return -1;
     }
 
@@ -741,7 +742,6 @@ int upgrade_to_uboot_progress(int one_part, char *name)
 
     memset(mtd, 0, 16);
     memset(mtddev, 0, 16);
-    memset(&upg_info, 0, sizeof(struct upg_info_uboot));
     
     for(i = 0; i < g_part_num; i++) {
         strcpy(g_upg_part_info[i].mtd, g_mtd_part_info[i].mtd);
@@ -760,9 +760,16 @@ int upgrade_to_uboot_progress(int one_part, char *name)
             erasesize = g_mtd_part_info[i].erasesize;
         }
 
-        if(g_upg_part_info[i].need_upgrade) 
+        if(g_upg_part_info[i].need_upgrade) { 
+
+            cnt++;
             printf("mtd%d, filesize: 0x%08lx, writesize: 0x%08lx, g_upgrade_size: 0x%08lx, need_upgrade: %d, file: %s\n", \
                     i, g_upg_part_info[i].file_size, g_upg_part_info[i].write_size, g_upgrade_size, g_upg_part_info[i].need_upgrade, g_mtd_part_info[i].part_file);
+        }
+    }
+
+    if(cnt == 0) {
+        return 0;
     }
 
     buf = (char*)malloc(size);
@@ -784,7 +791,7 @@ int upgrade_to_uboot_progress(int one_part, char *name)
         printf("read %s error\n", mtddev);
         return -1;
     } else {
-        hexdump(buf, 256);
+        //hexdump(buf, 256);
     }
 
     uboot_env = (struct env_image_single*)buf;
@@ -798,11 +805,11 @@ int upgrade_to_uboot_progress(int one_part, char *name)
 
     // 2. modify upg params
     memset(upg_info, 0, 0x100);
-    upg_info->flag = 0x01;
+    upg_info->upg_flag = 0x01;
     for(i = 0; i < g_part_num; i++) {
         if(g_upg_part_info[i].need_upgrade == true) {
-            upg_info->part_idx[i] = 0x01;
-            cnt++;
+            upg_info->part[i].part_flag = 0x01;
+            upg_info->part[i].size = g_mtd_part_info[i].size;
         }
     }
 
@@ -817,7 +824,7 @@ int upgrade_to_uboot_progress(int one_part, char *name)
 
     printf("new crc: 0x%08x\n", uboot_env->crc);
 
-    hexdump((const char*)upg_info, 256);
+    //hexdump((const char*)upg_info, 256);
 
 #if 1  
     // 3. write bootargs

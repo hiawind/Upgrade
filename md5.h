@@ -25,7 +25,7 @@ extern void md5_finish(MD5_CTX* ctx, unsigned char output[16]);
 extern void md5_buffer(const unsigned char *buffer, int buf_len, unsigned char digest[16]);
 extern int md5_file(const char *filename, unsigned char digest[16]);
 extern int md5_file_plus(const char * filename, unsigned char digest [ 16 ], unsigned int size);
-int md5_part(const char *mtdname, unsigned char digest[16]);
+int md5_part(const char *mtdname, unsigned char digest[16], unsigned long size);
 extern int md5_buffer_string(const unsigned char *buffer, int buf_len, char* md5_str, int capital);
 extern void md5_hex_string(const unsigned char *md5_hex, char* md5_str, int capital);
 

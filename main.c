@@ -82,7 +82,7 @@ int main(int argc, char * argv[])
     ret = upgrade_to_uboot_progress(one_part, part_name);
     if(ret > 0) {
         printf("reboot to uboot to upgrade!\n");
-        //system("reboot");
+        system("reboot");
     } else if (ret == 0){
         printf("No Need to Upgrade Any Partition!\n");
     } else {

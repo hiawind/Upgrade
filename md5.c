@@ -3,6 +3,8 @@ Copyright Shanghai YG Electronic Technology Co., Ltd.
 FileName: md5.c
 Description:  MD5 utility
 ******************************************************************************/
+#include <stdio.h>
+#include <stdlib.h>
 #include <sys/stat.h>
 #include <sys/ioctl.h>
 #include <sys/socket.h>
@@ -347,12 +349,14 @@ int md5_file_plus(const char *filename, unsigned char digest[16], unsigned int s
 
 /* Digests a part and prints the result.
  */
-int md5_part(const char *mtdname, unsigned char digest[16])
+int md5_part(const char *mtdname, unsigned char digest[16], unsigned long size)
 {
 	int fd = -1;
 	MD5_CTX context;
 	int len = 0;
 	unsigned char buffer[256];
+    unsigned char *ptr = NULL;
+    unsigned char *tmp = NULL;
 
 	if ((fd = open (mtdname, O_RDONLY)) < 0)
 	{
@@ -363,11 +367,37 @@ int md5_part(const char *mtdname, unsigned char digest[16])
 	{
 		md5_init(&context);
 		md5_starts(&context);
-		while ((len = read (fd, buffer, sizeof(buffer))) > 0)
-			md5_update(&context, buffer, len);
+
+        ptr = (unsigned char*)malloc(size);
+        if(ptr == NULL) {
+            printf("cannot malloc size: %d\n");
+            return -1;
+        }
+
+        if(read(fd, ptr, size) != size) {
+            printf("read %s error, len: %d\n", mtdname);
+            return -1;
+        }
+
+        len = sizeof(buffer);
+        tmp = ptr;
+		do {
+            memcpy(buffer, tmp, len);
+		    md5_update(&context, buffer, len);
+
+            tmp += len;
+            if(size >= len) {
+                size -= len;
+            } else {
+                len = size;
+            }
+            
+        } while(size > 0);
         
 		md5_finish(&context, digest);
 		close (fd);
+
+        free(ptr); ptr = NULL;
 	}
 	return 0;
 }

@@ -23,9 +23,12 @@ extern "C" {
 #define MAX_PART_NUM 16
 
 struct upg_info_uboot {
-    bool flag;
+    bool upg_flag;
     int update_cnt;
-    char part_idx[8];
+    struct {
+        char part_flag;
+        unsigned long size;
+    } part[8];
     int usb_port; 
 };
 
@@ -38,7 +41,7 @@ void part_info_init();
 bool check_file();
 bool mtd_parse_info();
 bool check_ver_md5(char *path);
-int verify_image_file(const char* img_file_name, const char* md5, int flag);
+int verify_image_file(const char* img_file_name, const char* md5, int flag, unsigned long size);
 int get_md5_plus(const char *img_file_name, char *md5, unsigned int len);
 int upgrade_image_progress(int one_part, char* name);
 
