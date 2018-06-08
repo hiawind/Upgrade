@@ -18,11 +18,12 @@ int main(int argc, char * argv[])
     int c;
     bool force = false;
     bool one_part = false;
+    bool upgrade_in_uboot = true;
     char part_name[16];
     char version_path[MAX_PATH];
     while(1)
     {
-        c = getopt(argc, argv, "p:b:f");
+        c = getopt(argc, argv, "p:b:fau");
         if(c == EOF)
             break;
 
@@ -32,6 +33,14 @@ int main(int argc, char * argv[])
                     force = true;
                     break;
 
+                case 'u':
+                    upgrade_in_uboot = true;
+                    break;
+
+                case 'a':
+                    upgrade_in_uboot = false;
+                    break;
+                
                 case 'p':
                     one_part = true;
                     strcpy(part_name, optarg);
@@ -78,29 +87,29 @@ int main(int argc, char * argv[])
         }
     }
 
-#ifdef UBOOT_UPG_SUPPORT
-    ret = upgrade_to_uboot_progress(one_part, part_name);
-    if(ret > 0) {
-        printf("reboot to uboot to upgrade!\n");
-        system("reboot");
-    } else if (ret == 0){
-        printf("No Need to Upgrade Any Partition!\n");
+    if(upgrade_in_uboot) {
+        ret = upgrade_to_uboot_progress(one_part, part_name);
+        if(ret > 0) {
+            printf("reboot to uboot to upgrade!\n");
+            system("reboot");
+        } else if (ret == 0){
+            printf("No Need to Upgrade Any Partition!\n");
+        } else {
+            printf("***********ERROR!***********\n");
+        }
     } else {
-        printf("***********ERROR!***********\n");
+        ret = upgrade_image_progress(one_part, part_name);
+        
+        if(ret > 0) {
+            printf("**********Upgrade success!************\n");
+            printf("reboot!\n");
+            system("reboot");
+        } else if (ret == 0){
+            printf("No Need to Upgrade Any Partition!\n");
+        } else {
+            printf("***********ERROR!***********\n");
+        }
     }
-#else
-    ret = upgrade_image_progress(one_part, part_name);
-    
-    if(ret > 0) {
-        printf("**********Upgrade success!************\n");
-        printf("reboot!\n");
-        system("reboot");
-    } else if (ret == 0){
-        printf("No Need to Upgrade Any Partition!\n");
-    } else {
-        printf("***********ERROR!***********\n");
-    }
-#endif
     return 0;
 }
 

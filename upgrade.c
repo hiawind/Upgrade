@@ -416,7 +416,7 @@ bool mtd_write_part(int index, const char *mtd)
     bool reto = true;
     int ret = 0;
     //i = 0;
-    int fd = -1, ifd = -1;
+    int dev_fd = -1, file_fd = -1;
     struct mtd_info_user info;
     char mtdDev[16];
     char file_path[MAX_PATH];
@@ -431,6 +431,7 @@ bool mtd_write_part(int index, const char *mtd)
     unsigned long upgyet_size = 0;
     struct timeval tv1;
     struct timeval tv2;
+    int test = 0;
 
     memset(mtdDev, 0, 16);
 
@@ -439,39 +440,44 @@ bool mtd_write_part(int index, const char *mtd)
     sprintf(mtdDev, "/dev/%s", mtd);
 
     memset(&info, 0, sizeof(struct mtd_info_user));
-    if((fd = open(mtdDev, O_RDWR)) < 0) {
+    if((dev_fd = open(mtdDev, O_RDWR)) < 0) {
         printf("%s open error: %d\n", mtdDev, errno);
         reto = false;
         goto END;
     } else {
-        printf("%s open, fd: %d\n",mtdDev, fd);
-        ret = ioctl(fd, MEMGETINFO, &info);
+        printf("%s open, dev_fd: %d\n",mtdDev, dev_fd);
+        ret = ioctl(dev_fd, MEMGETINFO, &info);
         printf("ret: %d\n", ret);
         printf("size: 0x%08x, erasesize: 0x%08x, writesize: 0x%08x, oobsize: 0x%08x\n", \
                 info.size, info.erasesize, info.writesize, info.oobsize);
     }
 
-    if(ioctl(fd, MEMGETREGIONCOUNT, &regcount) == 0) {
+    if(ioctl(dev_fd, MEMGETREGIONCOUNT, &regcount) == 0) {
         printf("regcount: %d\n", regcount);
     }
 
-    readlen = g_upg_part_info[index].file_size;//info.erasesize*16;
+    //readlen = g_upg_part_info[index].file_size;//info.erasesize*16;
+    if(g_upg_part_info[index].file_size > info.erasesize*16) {
+        readlen = info.erasesize*16;
+    } else {
+        readlen = g_upg_part_info[index].write_size;
+    }
     write_buf = (char*)malloc(readlen);
     if(write_buf == NULL) {
         printf("error, cannot malloc for write buf");
         reto = false;
         goto END;
     }
-/*
+
     read_buf = (char*)malloc(readlen);
     if(read_buf == NULL) {
         printf("error, cannot malloc for read buf");
         reto = false;
         goto END;
     }
-
-    lseek(fd, 0, SEEK_SET);
-    ret = read(fd, write_buf, readlen);
+/*
+    lseek(dev_fd, 0, SEEK_SET);
+    ret = read(dev_fd, write_buf, readlen);
     if(ret != readlen) {
         printf("read mtddevice error\n");
         reto = false;
@@ -482,18 +488,18 @@ bool mtd_write_part(int index, const char *mtd)
 */
     sprintf(file_path, "%s/%s", g_upg_path, g_mtd_part_info[index].part_file);
     printf("file_path: %s\n", file_path);
-    if((ifd = open(file_path, O_RDONLY)) == -1) {
+    if((file_fd = open(file_path, O_RDONLY)) == -1) {
         printf("open input file error\n");
         reto = false;
         goto END;
     } else {
-        imglen = lseek(ifd, 0, SEEK_END);
-        lseek(ifd, 0, SEEK_SET);
+        imglen = lseek(file_fd, 0, SEEK_END);
+        lseek(file_fd, 0, SEEK_SET);
         printf("The input file image len is: %d\n", imglen);
     }
 
 /*    
-    ret = read(ifd, write_buf, readlen);
+    ret = read(file_fd, write_buf, readlen);
     if(ret != readlen) {
         printf("read error, ret: %d, readlen: %d\n", ret, readlen);
     }
@@ -503,7 +509,7 @@ bool mtd_write_part(int index, const char *mtd)
 
 // erase part
     if(regcount == 0) {
-        res = mtd_erase_part(fd, 0, (info.size/info.erasesize), 0);
+        res = mtd_erase_part(dev_fd, 0, (info.size/info.erasesize), 0);
         printf("erase, res: %d\n", res);
     }
 
@@ -511,14 +517,14 @@ bool mtd_write_part(int index, const char *mtd)
     printf("part size: 0x%08x\n", info.size);
     imglen1 = imglen;
     upgyet_size = 0;
-    lseek(ifd, 0, SEEK_SET);
-    lseek(fd, 0, SEEK_SET);
+    lseek(file_fd, 0, SEEK_SET);
+    lseek(dev_fd, 0, SEEK_SET);
     gettimeofday(&tv1, NULL);
     printf("tv1: %ld\n", tv1.tv_sec);
     
     while(imglen) {
         memset(write_buf, 0xFF, readlen);
-        if((read_cnt = read(ifd, write_buf, readlen)) != readlen) {
+        if((read_cnt = read(file_fd, write_buf, readlen)) != readlen) {
             if(read_cnt < readlen) {
                 printf("The file is end\n");
             } else {
@@ -528,31 +534,41 @@ bool mtd_write_part(int index, const char *mtd)
             }
         }
   //      hexdump(write_buf, 256);
-        if((write_cnt = write(fd, write_buf, readlen)) != readlen) {
+        if((write_cnt = write(dev_fd, write_buf, read_cnt)) != read_cnt) {
             printf("write %s error! addr: 0x%08x, write cnt: %d, errno: %d\n", mtdDev, (imglen1 - imglen), write_cnt, errno);
             reto = false;
             goto END;
         } else {
-            g_upgyet_size += write_cnt;
-            upgyet_size += write_cnt;
-            progressl = upgyet_size*100/g_upg_part_info[index].write_size;
-            progresst = g_upgyet_size*100/g_upgrade_size;
-            
-            printf("write %s ok！addr: 0x%08x, readlen: %d, write cnt: %d, progress: %d%%/%d%%\n", mtdDev, (imglen1 - imglen), readlen, write_cnt, progressl, progresst);
-          
+            lseek(dev_fd, upgyet_size, SEEK_SET);
+            memset(read_buf, 0, readlen);
+            if( (write_cnt = read(dev_fd, read_buf, read_cnt)) != read_cnt ) {
+                printf("read error, readcnt: %d\n", write_cnt);
+                reto = false;
+                goto END;
+            } else {
+               /* if(test == 0) {
+                    read_buf[0] = 0x88;
+                    test = 1;
+                }*/
+                
+                if(memcmp(read_buf, write_buf, read_cnt) != 0) {
+                    printf("write data error, need to retry!\n");
+                    mtd_erase_part(dev_fd, upgyet_size, readlen/info.erasesize, 0);
+                    lseek(dev_fd, upgyet_size, SEEK_SET);
+                    lseek(file_fd, upgyet_size, SEEK_SET);
+                    continue;
+                } else {
+
+                    g_upgyet_size += write_cnt;
+                    upgyet_size += write_cnt;
+                    progressl = upgyet_size*100/g_upg_part_info[index].write_size;
+                    progresst = g_upgyet_size*100/g_upgrade_size;
+                    
+                    printf("write %s ok！addr: 0x%08x, readlen: %d, write cnt: %d, progress: %d%%/%d%%\n", \
+                        mtdDev, (imglen1 - imglen), readlen, write_cnt, progressl, progresst);
+                }
+            }            
         }
-        //fflush(stdout);
-        //fsync(fd);
-        /*
-        if( (read_cnt = read(fd, read_buf, readlen)) != readlen ) {
-            printf("read error, readcnt: %d\n", read_cnt);
-            reto = false;
-            goto END;
-        } else {
-            hexdump(read_buf, 256);
-            //break;
-        }
-*/
 
         if(imglen >= read_cnt) {
             imglen -= read_cnt;
@@ -565,22 +581,20 @@ bool mtd_write_part(int index, const char *mtd)
     gettimeofday(&tv2, NULL);
     printf("tv2: %ld, elapsed time: %lds\n", tv2.tv_sec, tv2.tv_sec-tv1.tv_sec);
 
-    print_size(readlen/(tv2.tv_sec-tv1.tv_sec), "/s");
+    print_size(g_upg_part_info[index].write_size/(tv2.tv_sec-tv1.tv_sec), "/s");
 
     printf("\nwrite done\n");
 
 END:
-    //fflush(stdout);
-    //fsync(fd);
-    ret = close(fd);
+    ret = close(dev_fd);
     if(ret == -1) {
-        printf("close fd %d error(%d)\n", fd, errno);
+        printf("close dev_fd %d error(%d)\n", dev_fd, errno);
         reto = false;
     }
 
-    ret = close(ifd);
+    ret = close(file_fd);
     if(ret == -1) {
-        printf("close fd %d error(%d)\n", ifd, errno);
+        printf("close fd %d error(%d)\n", file_fd, errno);
         reto = false;
     }
 
